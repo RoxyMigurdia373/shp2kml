@@ -12,6 +12,16 @@ st.title('🗺️ SHP 转 KML / KMZ')
 st.caption('中文属性 · WGS84 经纬度 · 批量上传、转换、下载 · 无需登录')
 st.warning('每个 ZIP 上传上限 1 GB（1024 MB），多个上传文件会累计占用内存。云端内存有限，允许上传不代表能处理任意 1 GB 文件；大文件建议在本机运行。解压总量上限 4 GB。')
 st.caption('文件会上传到运行本工具的服务器；转换不调用外部服务。临时工作文件在本次处理结束后删除。')
+with st.expander('上传前请看：文件格式与打包规则', expanded=True):
+    st.markdown('''
+- **上传 ZIP 格式**：支持一次上传多个 ZIP，也支持一个 ZIP 内包含多个矢量文件夹；会递归查找所有子文件夹中的 `.shp`。
+- **配套文件要齐全**：每个图层必须包含 `.shp`、`.shx`、`.dbf`，三者须在同一文件夹内且主文件名相同，例如 `地块.shp`、`地块.shx`、`地块.dbf`。
+- **建议保留 `.prj` 和 `.cpg`**：也须与 SHP 同目录、同名。`.prj` 用于识别源坐标系；缺失时须根据数据来源手选 EPSG，选错会导致位置偏移。`.cpg` 用于识别属性编码；缺失或中文乱码时请选择正确的 UTF-8 / GBK。
+- **文件夹可以嵌套，ZIP 不能嵌套**：不会自动解开 ZIP 内的其他 ZIP；请先将内层 ZIP 解压成文件夹，再统一打包上传。RAR、7Z、GeoJSON 等不属于本工具的上传格式。
+- **结果按图层输出**：不同文件夹中的同名 SHP 会用编号区分；单个图层失败不影响其他图层。支持 KML / KMZ，多个结果会打包为 ZIP 下载。
+''')
+    st.caption('正确的目录示例（每组文件实际应分别保存）：')
+    st.code('数据.zip\n├─ 地块/\n│  ├─ 地块.shp\n│  ├─ 地块.shx\n│  ├─ 地块.dbf\n│  ├─ 地块.prj\n│  └─ 地块.cpg\n└─ 道路/\n   ├─ 道路.shp\n   ├─ 道路.shx\n   ├─ 道路.dbf\n   ├─ 道路.prj\n   └─ 道路.cpg', language=None)
 uploads = st.file_uploader('批量上传 Shapefile ZIP（可多选）', type=['zip'], accept_multiple_files=True)
 if uploads:
     st.info(f'已选择 {len(uploads)} 个压缩包，总计 {sum(u.size for u in uploads) / 1024**2:.1f} MB')
