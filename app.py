@@ -8,7 +8,16 @@ from pyproj import CRS
 from converter import MAX_UPLOAD, extract, sidecar, convert, package
 
 st.set_page_config(page_title='SHP 转 KML / KMZ', page_icon='🗺️', layout='wide')
+from pathlib import Path as _ThemePath
+_theme = _ThemePath(__file__).resolve().parent / "style.css"
+if _theme.is_file():
+    st.markdown("<style>" + _theme.read_text(encoding="utf-8") + "</style>", unsafe_allow_html=True)
 st.title('🗺️ SHP 转 KML / KMZ')
+mode = st.radio('处理方式', ['SHP 转 KML / KMZ', 'GeoJSON 转 SHP'], horizontal=True)
+if mode == 'GeoJSON 转 SHP':
+    from geojson_workspace import render_geojson_workspace
+    render_geojson_workspace()
+    st.stop()
 st.caption('中文属性 · WGS84 经纬度 · 批量上传、转换、下载 · 无需登录')
 st.warning('每个 ZIP 上传上限 1 GB（1024 MB），多个上传文件会累计占用内存。云端内存有限，允许上传不代表能处理任意 1 GB 文件；大文件建议在本机运行。解压总量上限 4 GB。')
 st.caption('文件会上传到运行本工具的服务器；转换不调用外部服务。临时工作文件在本次处理结束后删除。')
@@ -130,10 +139,10 @@ if uploads:
         saved = st.session_state.get('batch_results')
         if saved:
             results, combined = saved
-            st.download_button('一键下载全部结果 ZIP', combined, 'batch_shp2kml_results.zip', 'application/zip', on_click='ignore')
+            st.download_button('一键下载全部结果 ZIP', combined, 'batch_shp2kml_results.zip', 'application/zip')
             for index, (source_name, name, content) in enumerate(results):
                 mime = 'application/zip' if name.endswith('.zip') else ('application/vnd.google-earth.kmz' if name.endswith('.kmz') else 'application/vnd.google-earth.kml+xml')
-                st.download_button(f'下载 {source_name} 的结果', content, name, mime, key=f'download-{index}', on_click='ignore')
+                st.download_button(f'下载 {source_name} 的结果', content, name, mime, key=f'download-{index}')
 else:
     st.session_state.pop('batch_results', None)
     st.session_state.pop('batch_signature', None)

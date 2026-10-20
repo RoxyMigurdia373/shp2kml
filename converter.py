@@ -4,6 +4,8 @@ import os
 import shutil
 import stat
 import subprocess
+import sys
+import logging
 import zipfile
 from pathlib import Path
 from xml.sax.saxutils import escape, quoteattr
@@ -101,6 +103,9 @@ def write_kml(source, output, encoding, crs=None):
 
 def convert(shp, output, crs, encoding):
     ogr = shutil.which('ogr2ogr')
+    bundled_root = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parents[2])) / 'gdal'
+    if not ogr and (bundled_root / 'ogr2ogr.exe').is_file():
+        ogr = str(bundled_root / 'ogr2ogr.exe')
     warning = None
     if ogr:
         intermediate = output.with_suffix('.geojson')
@@ -108,15 +113,37 @@ def convert(shp, output, crs, encoding):
         if crs:
             cmd += ['-s_srs', crs]
         try:
-            proc = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=600)
+            env = os.environ.copy()
+            # 独立 CLI 的 DLL/数据只传给该子进程，避免污染 Fiona/PyProj。
+            if Path(ogr).resolve().parent == bundled_root.resolve():
+                env['PATH'] = str(bundled_root) + os.pathsep + env.get('PATH', '')
+                if (bundled_root / 'gdal-data').is_dir():
+                    env['GDAL_DATA'] = str(bundled_root / 'gdal-data')
+                if (bundled_root / 'proj-data').is_dir():
+                    env['PROJ_LIB'] = str(bundled_root / 'proj-data')
+                    env['PROJ_DATA'] = str(bundled_root / 'proj-data')
+            # PyInstaller 修改的 DLL 查找目录不能传给外部 GDAL 程序。
+            if os.name == 'nt' and getattr(sys, 'frozen', False):
+                import ctypes
+                ctypes.windll.kernel32.SetDllDirectoryW(None)
+            try:
+                proc = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8',
+                    errors='replace', timeout=600, env=env,
+                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+            finally:
+                if os.name == 'nt' and getattr(sys, 'frozen', False):
+                    ctypes.windll.kernel32.SetDllDirectoryW(sys._MEIPASS)
             if proc.returncode:
                 raise ValueError(proc.stderr[-2000:])
             write_kml(intermediate, output, 'UTF-8', 'EPSG:4326')
             return 'ogr2ogr', None
         except Exception as exc:
             warning = str(exc)
+            logging.getLogger(__name__).warning('ogr2ogr 失败，改用 Fiona + PyProj：%s', exc)
         finally:
             intermediate.unlink(missing_ok=True)
+    if not ogr:
+        logging.getLogger(__name__).info('ogr2ogr 不可用，使用 Fiona + PyProj')
     write_kml(shp, output, encoding, crs)
     return 'Fiona + PyProj', warning
 

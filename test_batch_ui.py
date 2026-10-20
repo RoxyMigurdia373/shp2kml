@@ -22,7 +22,7 @@ with patch('streamlit.file_uploader',return_value=uploads):
             with zipfile.ZipFile(io.BytesIO(outer.read(name))) as inner:
                 assert len(inner.namelist())==3
                 assert all(n.endswith('.kml') for n in inner.namelist())
-    app.radio[0].set_value('KMZ').run()
+    app.radio[1].set_value('KMZ').run()
     assert 'batch_results' not in app.session_state
     app.button[0].click().run()
     assert not app.exception
